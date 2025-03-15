@@ -2,65 +2,107 @@ import { App, Plugin, MarkdownView, PluginSettingTab, Setting } from 'obsidian';
 
 interface JKMouseScrollSettings {
   scrollSpeed: number;
+  repeatInterval: number;
 }
 
 const DEFAULT_SETTINGS: JKMouseScrollSettings = {
-  scrollSpeed: 50
+  scrollSpeed: 50,
+  repeatInterval: 50
 };
 
 export default class JKMouseScroll extends Plugin {
   settings: JKMouseScrollSettings;
   private lastGPress = 0;
+  private intervalId: number | null = null;
+  private currentKey: string | null = null;
 
   async onload() {
     await this.loadSettings();
     this.addSettingTab(new JKMouseScrollSettingTab(this.app, this));
     
-    this.registerDomEvent(document, 'keydown', this.handleKeyPress);
+    this.registerDomEvent(document, 'keydown', this.handleKeyDown);
+    this.registerDomEvent(document, 'keyup', this.handleKeyUp);
   }
 
-  onunload() {}
+  onunload() {
+    if (this.intervalId !== null) {
+      window.clearInterval(this.intervalId);
+    }
+  }
 
-  private handleKeyPress = (event: KeyboardEvent) => {
+  private getPreviewContent(): Element | null {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView || activeView.getMode() !== 'preview') return;
+    if (!activeView || activeView.getMode() !== 'preview') return null;
+    return activeView.previewMode.containerEl.querySelector('.markdown-preview-view');
+  }
 
-    const previewContent = activeView.previewMode.containerEl.querySelector('.markdown-preview-view');
+  private scrollOnce(previewContent: Element, key: string, isRepeat: boolean) {
+    const speed = this.settings.scrollSpeed;
+    if (key === 'j') {
+      if (isRepeat) {
+        previewContent.scrollTop += speed;
+      } else {
+        previewContent.scrollBy({ top: speed, behavior: 'smooth' });
+      }
+    } else if (key === 'k') {
+      if (isRepeat) {
+        previewContent.scrollTop -= speed;
+      } else {
+        previewContent.scrollBy({ top: -speed, behavior: 'smooth' });
+      }
+    }
+  }
+
+  private handleKeyDown = (event: KeyboardEvent) => {
+    const previewContent = this.getPreviewContent();
     if (!previewContent) return;
 
     const now = Date.now();
-    const speed = this.settings.scrollSpeed;
+    const key = event.key.toLowerCase();
 
-    switch (event.key) {
-      case 'g':
-        if (!event.shiftKey) {
-          if (now - this.lastGPress < 500) {
-            previewContent.scrollTo({ top: 0, behavior: 'smooth' });
-            event.preventDefault();
-          }
-          this.lastGPress = now;
-        }
-        break;
-      
-      case 'G':
-        if (event.shiftKey) {
-          previewContent.scrollTo({
-            top: previewContent.scrollHeight,
-            behavior: 'smooth'
-          });
+    if (key === 'g') {
+      if (event.shiftKey) {
+        previewContent.scrollTo({
+          top: previewContent.scrollHeight,
+          behavior: 'smooth'
+        });
+        event.preventDefault();
+      } else {
+        if (now - this.lastGPress < 500) {
+          previewContent.scrollTo({ top: 0, behavior: 'smooth' });
           event.preventDefault();
         }
-        break;
+        this.lastGPress = now;
+      }
+    }
 
-      case 'j':
-        previewContent.scrollBy({ top: speed, behavior: 'smooth' });
-        event.preventDefault();
-        break;
+    if (key === 'j' || key === 'k') {
+      if (!event.repeat && this.intervalId === null) {
+        this.currentKey = key;
+        this.scrollOnce(previewContent, key, false);
+        this.intervalId = window.setInterval(() => {
+          const pc = this.getPreviewContent();
+          if (pc && this.currentKey) {
+            this.scrollOnce(pc, this.currentKey, true);
+          } else {
+            window.clearInterval(this.intervalId!);
+            this.intervalId = null;
+            this.currentKey = null;
+          }
+        }, this.settings.repeatInterval);
+      }
+      event.preventDefault();
+    }
+  };
 
-      case 'k':
-        previewContent.scrollBy({ top: -speed, behavior: 'smooth' });
-        event.preventDefault();
-        break;
+  private handleKeyUp = (event: KeyboardEvent) => {
+    const key = event.key.toLowerCase();
+    if ((key === 'j' || key === 'k') && key === this.currentKey) {
+      if (this.intervalId !== null) {
+        window.clearInterval(this.intervalId);
+        this.intervalId = null;
+        this.currentKey = null;
+      }
     }
   };
 
@@ -88,6 +130,17 @@ class JKMouseScrollSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.scrollSpeed.toString())
         .onChange(async value => {
           this.plugin.settings.scrollSpeed = parseInt(value) || 50;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Repeat interval')
+      .setDesc('Milliseconds between scroll steps when holding keys (default: 50)')
+      .addText(text => text
+        .setPlaceholder('50')
+        .setValue(this.plugin.settings.repeatInterval.toString())
+        .onChange(async value => {
+          this.plugin.settings.repeatInterval = parseInt(value) || 50;
           await this.plugin.saveSettings();
         }));
   }
