@@ -6,8 +6,8 @@ interface JKMouseScrollSettings {
 }
 
 const DEFAULT_SETTINGS: JKMouseScrollSettings = {
-  scrollSpeed: 50,
-  repeatInterval: 50
+  scrollSpeed: 10,
+  repeatInterval: 5
 };
 
 export default class JKMouseScroll extends Plugin {
@@ -124,23 +124,23 @@ class JKMouseScrollSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Scroll speed')
-      .setDesc('Pixels to scroll per keypress (default: 50)')
+      .setDesc('Pixels to scroll per keypress (default: 10)')
       .addText(text => text
-        .setPlaceholder('50')
+        .setPlaceholder('10')
         .setValue(this.plugin.settings.scrollSpeed.toString())
         .onChange(async value => {
-          this.plugin.settings.scrollSpeed = parseInt(value) || 50;
+          this.plugin.settings.scrollSpeed = parseInt(value) || 10;
           await this.plugin.saveSettings();
         }));
 
     new Setting(containerEl)
       .setName('Repeat interval')
-      .setDesc('Milliseconds between scroll steps when holding keys (default: 50)')
+      .setDesc('Milliseconds between scroll steps when holding keys; the recommended value is 5 ')
       .addText(text => text
-        .setPlaceholder('50')
+        .setPlaceholder('5')
         .setValue(this.plugin.settings.repeatInterval.toString())
         .onChange(async value => {
-          this.plugin.settings.repeatInterval = parseInt(value) || 50;
+          this.plugin.settings.repeatInterval = parseInt(value) || 5;
           await this.plugin.saveSettings();
         }));
   }
