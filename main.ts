@@ -6,8 +6,8 @@ interface JKMouseScrollSettings {
 }
 
 const DEFAULT_SETTINGS: JKMouseScrollSettings = {
-  scrollSpeed: 50,
-  repeatInterval: 50
+  scrollSpeed: 10,
+  repeatInterval: 5
 };
 
 export default class JKMouseScroll extends Plugin {
@@ -36,6 +36,23 @@ export default class JKMouseScroll extends Plugin {
     return activeView.previewMode.containerEl.querySelector('.markdown-preview-view');
   }
 
+  private shouldHandleKeys(): boolean {
+    const activeEl = document.activeElement;
+    
+    if (document.querySelector('.modal')) return false;
+
+    if (activeEl) {
+      const tagName = activeEl.tagName.toLowerCase();
+      const isEditable = tagName === 'input' || 
+                        tagName === 'textarea' || 
+                        (activeEl as HTMLElement).isContentEditable;
+      if (isEditable) return false;
+    }
+
+    const previewContent = this.getPreviewContent();
+    return !!previewContent && previewContent.contains(activeEl);
+  }
+
   private scrollOnce(previewContent: Element, key: string, isRepeat: boolean) {
     const speed = this.settings.scrollSpeed;
     if (key === 'j') {
@@ -54,6 +71,8 @@ export default class JKMouseScroll extends Plugin {
   }
 
   private handleKeyDown = (event: KeyboardEvent) => {
+    if (!this.shouldHandleKeys()) return;
+
     const previewContent = this.getPreviewContent();
     if (!previewContent) return;
 
@@ -81,13 +100,15 @@ export default class JKMouseScroll extends Plugin {
         this.currentKey = key;
         this.scrollOnce(previewContent, key, false);
         this.intervalId = window.setInterval(() => {
-          const pc = this.getPreviewContent();
-          if (pc && this.currentKey) {
-            this.scrollOnce(pc, this.currentKey, true);
-          } else {
+          if (!this.shouldHandleKeys()) {
             window.clearInterval(this.intervalId!);
             this.intervalId = null;
             this.currentKey = null;
+            return;
+          }
+          const pc = this.getPreviewContent();
+          if (pc && this.currentKey) {
+            this.scrollOnce(pc, this.currentKey, true);
           }
         }, this.settings.repeatInterval);
       }
@@ -124,9 +145,9 @@ class JKMouseScrollSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Scroll speed')
-      .setDesc('Pixels to scroll per keypress (default: 50)')
+      .setDesc('Pixels to scroll per keypress (default: 10)')
       .addText(text => text
-        .setPlaceholder('50')
+        .setPlaceholder('10')
         .setValue(this.plugin.settings.scrollSpeed.toString())
         .onChange(async value => {
           this.plugin.settings.scrollSpeed = parseInt(value) || 50;
@@ -135,9 +156,9 @@ class JKMouseScrollSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Repeat interval')
-      .setDesc('Milliseconds between scroll steps when holding keys (default: 50)')
+      .setDesc('Milliseconds between scroll steps when holding keys; the recommended value is 5')
       .addText(text => text
-        .setPlaceholder('50')
+        .setPlaceholder('5')
         .setValue(this.plugin.settings.repeatInterval.toString())
         .onChange(async value => {
           this.plugin.settings.repeatInterval = parseInt(value) || 50;
