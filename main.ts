@@ -150,7 +150,7 @@ class JKMouseScrollSettingTab extends PluginSettingTab {
         .setPlaceholder('10')
         .setValue(this.plugin.settings.scrollSpeed.toString())
         .onChange(async value => {
-          this.plugin.settings.scrollSpeed = parseInt(value) || 50;
+          this.plugin.settings.scrollSpeed = parseInt(value) || 10;
           await this.plugin.saveSettings();
         }));
 
@@ -161,7 +161,7 @@ class JKMouseScrollSettingTab extends PluginSettingTab {
         .setPlaceholder('5')
         .setValue(this.plugin.settings.repeatInterval.toString())
         .onChange(async value => {
-          this.plugin.settings.repeatInterval = parseInt(value) || 50;
+          this.plugin.settings.repeatInterval = parseInt(value) || 5;
           await this.plugin.saveSettings();
         }));
   }
